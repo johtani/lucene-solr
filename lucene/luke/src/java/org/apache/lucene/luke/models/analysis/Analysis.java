@@ -87,6 +87,32 @@ public interface Analysis {
     }
   }
 
+
+  /**
+   * Holder for a pair tokenizer/filter and token list
+   * FIXME how to handle char_filter?
+   */
+  class NamedTokens {
+    /**
+     * Name of Tokenizer/Token Filter
+     */
+    private final String name;
+    private final List<Token> tokens;
+
+    NamedTokens(String name, List<Token> tokens) {
+      this.name = name;
+      this.tokens = tokens;
+    }
+
+    public String getName() {
+      return name;
+    }
+
+    public List<Token> getTokens() {
+      return tokens;
+    }
+  }
+
   /**
    * Returns built-in {@link Analyzer}s.
    */
@@ -147,5 +173,14 @@ public interface Analysis {
    * @throws LukeException - if an internal error occurs when loading jars
    */
   void addExternalJars(List<String> jarFiles);
+
+
+  /**
+   * Analyzes given text with the current Analyzer.
+   *
+   * @param text - text string to analyze
+   * @return the list of pair of Tokenizer/TokenFilter name and tokens
+   */
+  List<NamedTokens> analyzeStepByStep(String text);
 
 }
