@@ -17,6 +17,8 @@
 
 package org.apache.lucene.luke.models.analysis;
 
+import java.io.IOException;
+import java.io.Reader;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
@@ -88,28 +90,65 @@ public interface Analysis {
   }
 
 
-  /**
-   * Holder for a pair tokenizer/filter and token list
-   * FIXME how to handle char_filter?
-   */
-  class NamedTokens {
-    /**
-     * Name of Tokenizer/Token Filter
-     */
+  abstract class NamedObject {
     private final String name;
-    private final List<Token> tokens;
 
-    NamedTokens(String name, List<Token> tokens) {
+    protected NamedObject(String name) {
       this.name = name;
-      this.tokens = tokens;
     }
 
     public String getName() {
       return name;
     }
+  }
+
+  /**
+   * Holder for a pair tokenizer/filter and token list
+   */
+  class NamedTokens extends NamedObject {
+    private final List<Token> tokens;
+
+    NamedTokens(String name, List<Token> tokens) {
+      super(name);
+      this.tokens = tokens;
+    }
 
     public List<Token> getTokens() {
       return tokens;
+    }
+  }
+
+  /**
+   * Holder for a charfilter name and text that output by the charfilter
+   */
+  class CharfilteredText extends NamedObject {
+    private final String text;
+
+    public CharfilteredText(String name, String text) {
+      super(name);
+      this.text = text;
+    }
+
+    public String getText() {
+      return text;
+    }
+  }
+
+  class StepByStepResult {
+    private List<CharfilteredText> charfilteredTexts;
+    private List<NamedTokens> namedTokens;
+
+    public StepByStepResult(List<CharfilteredText> charfilteredTexts, List<NamedTokens> namedTokens) {
+      this.charfilteredTexts = charfilteredTexts;
+      this.namedTokens = namedTokens;
+    }
+
+    public List<CharfilteredText> getCharfilteredTexts() {
+      return charfilteredTexts;
+    }
+
+    public List<NamedTokens> getNamedTokens() {
+      return namedTokens;
     }
   }
 
@@ -179,8 +218,8 @@ public interface Analysis {
    * Analyzes given text with the current Analyzer.
    *
    * @param text - text string to analyze
-   * @return the list of pair of Tokenizer/TokenFilter name and tokens
+   * @return the list of text by charfilter and the list of pair of Tokenizer/TokenFilter name and tokens
    */
-  List<NamedTokens> analyzeStepByStep(String text);
+  StepByStepResult analyzeStepByStep(String text);
 
 }

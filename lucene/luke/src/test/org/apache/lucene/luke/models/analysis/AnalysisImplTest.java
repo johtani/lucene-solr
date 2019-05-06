@@ -132,19 +132,15 @@ public class AnalysisImplTest extends LuceneTestCase {
     analysis.analyze(text);
   }
 
-  @Test
+  @Test(expected = LukeException.class)
   public void testAnalyzeStepByStep_preset() {
     AnalysisImpl analysis = new AnalysisImpl();
     String analyzerType = "org.apache.lucene.analysis.standard.StandardAnalyzer";
     Analyzer analyzer = analysis.createAnalyzerFromClassName(analyzerType);
     assertEquals(analyzerType, analyzer.getClass().getName());
 
-    String text = "It is a truth universally acknowledged, that a single man in possession of a good fortune, must be in want of a wife.";
-    List<Analysis.NamedTokens> namedTokensList = analysis.analyzeStepByStep(text);
-    assertNotNull(namedTokensList);
-    assertEquals(1, namedTokensList.size());
-    //FIXME check each namedTokensList
-    assertEquals("org.apache.lucene.analysis.standard.StandardAnalyzer", namedTokensList.get(0).getName());
+    String text = "This test must fail.";
+    analysis.analyzeStepByStep(text);
   }
 
   @Test
@@ -154,18 +150,28 @@ public class AnalysisImplTest extends LuceneTestCase {
     tkParams.put("maxTokenLen", "128");
     CustomAnalyzerConfig.Builder builder = new CustomAnalyzerConfig.Builder(
         "keyword", tkParams)
-        .addTokenFilterConfig("lowercase", Collections.emptyMap());
+        .addTokenFilterConfig("lowercase", Collections.emptyMap())
+        .addCharFilterConfig("htmlstrip", Collections.emptyMap());
     CustomAnalyzer analyzer = (CustomAnalyzer) analysis.buildCustomAnalyzer(builder.build());
     assertEquals("org.apache.lucene.analysis.custom.CustomAnalyzer", analyzer.getClass().getName());
-    assertEquals("org.apache.lucene.analysis.core.KeywordTokenizerFactory", analyzer.getTokenizerFactory().getClass().getName());
-    assertEquals("org.apache.lucene.analysis.core.LowerCaseFilterFactory", analyzer.getTokenFilterFactories().get(0).getClass().getName());
+    assertEquals("org.apache.lucene.analysis.charfilter.HTMLStripCharFilterFactory",
+        analyzer.getCharFilterFactories().get(0).getClass().getName());
+    assertEquals("org.apache.lucene.analysis.core.KeywordTokenizerFactory",
+        analyzer.getTokenizerFactory().getClass().getName());
+    assertEquals("org.apache.lucene.analysis.core.LowerCaseFilterFactory",
+        analyzer.getTokenFilterFactories().get(0).getClass().getName());
 
     String text = "Apache Lucene";
-    List<Analysis.NamedTokens> namedTokensList = analysis.analyzeStepByStep(text);
-    assertNotNull(namedTokensList);
-    assertEquals(2, namedTokensList.size());
+    Analysis.StepByStepResult result = analysis.analyzeStepByStep(text);
+    assertNotNull(result);
+    assertNotNull(result.getCharfilteredTexts());
+    assertEquals(1,result.getCharfilteredTexts().size());
+    assertEquals("org.apache.lucene.analysis.charfilter.HTMLStripCharFilter", result.getCharfilteredTexts().get(0).getName());
+
+    assertNotNull(result.getNamedTokens());
+    assertEquals(2, result.getNamedTokens().size());
     //FIXME check each namedTokensList
-    assertEquals("org.apache.lucene.analysis.core.KeywordTokenizer", namedTokensList.get(0).getName());
-    assertEquals("org.apache.lucene.analysis.core.LowerCaseFilter", namedTokensList.get(1).getName());
+    assertEquals("org.apache.lucene.analysis.core.KeywordTokenizer", result.getNamedTokens().get(0).getName());
+    assertEquals("org.apache.lucene.analysis.core.LowerCaseFilter", result.getNamedTokens().get(1).getName());
   }
 }

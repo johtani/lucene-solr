@@ -36,6 +36,7 @@ import org.apache.lucene.luke.app.desktop.util.MessageUtils;
 import org.apache.lucene.luke.app.desktop.util.TableUtils;
 import org.apache.lucene.luke.models.analysis.Analysis;
 
+/** Provider of the simple analyze result panel */
 public class SimpleAnalyzeResultPanelProvider implements SimpleAnalyzeResultPanelOperator {
 
   private final ComponentOperatorRegistry operatorRegistry;
@@ -89,8 +90,10 @@ public class SimpleAnalyzeResultPanelProvider implements SimpleAnalyzeResultPane
     tokens = analysisModel.analyze(text);
     tokensTable.setModel(new TokensTableModel(tokens));
     tokensTable.setShowGrid(true);
-    tokensTable.getColumnModel().getColumn(TokensTableModel.Column.TERM.getIndex()).setPreferredWidth(TokensTableModel.Column.TERM.getColumnWidth());
-    tokensTable.getColumnModel().getColumn(TokensTableModel.Column.ATTR.getIndex()).setPreferredWidth(TokensTableModel.Column.ATTR.getColumnWidth());
+    tokensTable.getColumnModel().getColumn(TokensTableModel.Column.TERM.getIndex())
+        .setPreferredWidth(TokensTableModel.Column.TERM.getColumnWidth());
+    tokensTable.getColumnModel().getColumn(TokensTableModel.Column.ATTR.getIndex())
+        .setPreferredWidth(TokensTableModel.Column.ATTR.getColumnWidth());
   }
 
   @Override

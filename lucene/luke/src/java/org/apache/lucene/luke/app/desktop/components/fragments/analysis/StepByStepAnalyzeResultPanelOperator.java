@@ -24,11 +24,129 @@ import java.util.TreeMap;
 
 import org.apache.lucene.luke.app.desktop.components.ComponentOperatorRegistry;
 import org.apache.lucene.luke.app.desktop.components.TableColumnInfo;
+import org.apache.lucene.luke.app.desktop.components.TableModelBase;
 import org.apache.lucene.luke.models.analysis.Analysis;
 
-/** Operator of the simple analyze result panel */
+/** Operator of the Step by step analyze result panel */
 public interface StepByStepAnalyzeResultPanelOperator extends ComponentOperatorRegistry.ComponentOperator {
 
+  private static String shortenName(String name) {
+    return name.substring(name.lastIndexOf('.') + 1);
+  }
+
+  /** Table model for row header (display charfilter/tokenizer/filter name)  */
+  final class RowHeaderTableModel extends TableModelBase<RowHeaderTableModel.Column> {
+
+    enum Column implements TableColumnInfo {
+      NAME("Name", 0, String.class, 200);
+
+      private final String colName;
+      private final int index;
+      private final Class<?> type;
+      private final int width;
+
+      Column(String colName, int index, Class<?> type, int width) {
+        this.colName = colName;
+        this.index = index;
+        this.type = type;
+        this.width = width;
+      }
+
+      @Override
+      public String getColName() {
+        return colName;
+      }
+
+      @Override
+      public int getIndex() {
+        return index;
+      }
+
+      @Override
+      public Class<?> getType() {
+        return type;
+      }
+
+      @Override
+      public int getColumnWidth() {
+        return width;
+      }
+    }
+
+    RowHeaderTableModel() {
+      super();
+    }
+
+    RowHeaderTableModel(List<? extends Analysis.NamedObject> namedObjects) {
+      super(namedObjects.size());
+      for (int i = 0; i < namedObjects.size(); i++) {
+        data[i][0] = shortenName(namedObjects.get(i).getName());
+      }
+    }
+
+    @Override
+    protected Column[] columnInfos() {
+      return Column.values();
+    }
+  }
+
+  /** Table model for charfilter result */
+  final class CharfilterTextTableModel extends TableModelBase<CharfilterTextTableModel.Column> {
+
+    enum Column implements TableColumnInfo {
+      TEXT("Text", 0, String.class, 1000);
+
+      private final String colName;
+      private final int index;
+      private final Class<?> type;
+      private final int width;
+
+      Column(String colName, int index, Class<?> type, int width) {
+        this.colName = colName;
+        this.index = index;
+        this.type = type;
+        this.width = width;
+      }
+
+      @Override
+      public String getColName() {
+        return colName;
+      }
+
+      @Override
+      public int getIndex() {
+        return index;
+      }
+
+      @Override
+      public Class<?> getType() {
+        return type;
+      }
+
+      @Override
+      public int getColumnWidth() {
+        return width;
+      }
+    }
+
+    CharfilterTextTableModel() {
+      super();
+    }
+
+    CharfilterTextTableModel(List<Analysis.CharfilteredText> charfilteredTexts) {
+      super(charfilteredTexts.size());
+      for (int i = 0; i < charfilteredTexts.size(); i++) {
+        data[i][Column.TEXT.getIndex()] = charfilteredTexts.get(i).getText();
+      }
+    }
+
+    @Override
+    protected Column[] columnInfos() {
+      return Column.values();
+    }
+  }
+
+  /** Table model for tokenizer/filter result */
   final class NamedTokensTableModel extends AbstractTableModel {
 
     class Column implements TableColumnInfo {
@@ -70,27 +188,35 @@ public interface StepByStepAnalyzeResultPanelOperator extends ComponentOperatorR
 
     private final Object[][] data;
 
+
     NamedTokensTableModel() {
       this.data = new Object[0][0];
     }
 
+    //Currently this only show each tokenizer/filters result independently,
+    // so the result doesn't show deletion/separation by next filter,
+    // e.g. "library" by WordDelimiterFilter is different position between other output.
     NamedTokensTableModel(List<Analysis.NamedTokens> namedTokens) {
-      int maxLength = 0;
+      int maxColumnSize = 0;
       Analysis.NamedTokens namedToken;
-      for (int i = 0; i < namedTokens.size(); i++) {
-        namedToken = namedTokens.get(i);
-        columnMap.put(i, new Column(namedToken.getName(), i, String.class, 200));
-        if (maxLength < namedToken.getTokens().size()) {
-          maxLength = namedToken.getTokens().size();
+      for (Analysis.NamedTokens tokens : namedTokens) {
+        namedToken = tokens;
+        if (maxColumnSize < namedToken.getTokens().size()) {
+          maxColumnSize = namedToken.getTokens().size();
         }
       }
-      this.data = new Object[maxLength][namedTokens.size()];
+      int rowSize = namedTokens.size();
+      this.data = new Object[rowSize][maxColumnSize];
 
       for (int i = 0; i < namedTokens.size(); i++) {
         namedToken = namedTokens.get(i);
+        data[i][0] = shortenName(namedToken.getName());
         for (int j = 0; j < namedToken.getTokens().size(); j++) {
           Analysis.Token token = namedToken.getTokens().get(j);
-          data[j][i] = token.getTerm();
+          data[i][j] = token.getTerm();
+          if (maxColumnSize == namedToken.getTokens().size()) {
+            columnMap.put(j, new Column(String.valueOf(j), j, String.class, 200));
+          }
         }
       }
     }

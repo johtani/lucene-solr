@@ -221,29 +221,32 @@ public final class AnalysisImpl implements Analysis {
   }
 
   @Override
-  public List<NamedTokens> analyzeStepByStep(String text){
+  public StepByStepResult analyzeStepByStep(String text){
     Objects.requireNonNull(text);
     if (analyzer == null) {
       throw new LukeException("Analyzer is not set.");
     }
 
-    List<NamedTokens> result = new ArrayList<>();
-    NamedTokens namedTokens;
     if (!(analyzer instanceof CustomAnalyzer)) {
-      List<Token> tokens = analyze(text);
-      namedTokens = new NamedTokens(analyzer.getClass().getName(), tokens);
-      result.add(namedTokens);
-      return result;
+      throw new LukeException("Analyzer is not CustomAnalyzer.");
     }
+
+    List<NamedTokens> namedTokens = new ArrayList<>();
+    List<CharfilteredText> charfilteredTexts = new ArrayList<>();
 
     try {
       CustomAnalyzer customAnalyzer = (CustomAnalyzer)analyzer;
       final List<CharFilterFactory> charFilterFactories = customAnalyzer.getCharFilterFactories();
       Reader reader = new StringReader(text);
+      String charFilteredSource = text;
       if (charFilterFactories.size() > 0) {
         Reader cs = reader;
         for (CharFilterFactory charFilterFactory : charFilterFactories) {
           cs = charFilterFactory.create(reader);
+          Reader readerForWriteOut = new StringReader(charFilteredSource);
+          readerForWriteOut = charFilterFactory.create(readerForWriteOut);
+          charFilteredSource = writeCharStream(readerForWriteOut);
+          charfilteredTexts.add(new CharfilteredText(readerForWriteOut.getClass().getName(), charFilteredSource));
         }
         reader = cs;
       }
@@ -253,13 +256,13 @@ public final class AnalysisImpl implements Analysis {
       ((Tokenizer)tokenStream).setReader(reader);
       List<Token> tokens = new ArrayList<>();
       List<AttributeSource> attributeSources = analyzeTokenStream(tokenStream, tokens);
-      result.add(new NamedTokens(tokenStream.getClass().getName(), tokens));
+      namedTokens.add(new NamedTokens(tokenStream.getClass().getName(), tokens));
       ListBasedTokenStream listBasedTokenStream = new ListBasedTokenStream(tokenStream, attributeSources);
       for (TokenFilterFactory tokenFilterFactory : tokenFilterFactories) {
         tokenStream = tokenFilterFactory.create(listBasedTokenStream);
         tokens = new ArrayList<>();
         attributeSources = analyzeTokenStream(tokenStream, tokens);
-        result.add(new NamedTokens(tokenStream.getClass().getName(), tokens));
+        namedTokens.add(new NamedTokens(tokenStream.getClass().getName(), tokens));
         try {
           listBasedTokenStream.close();
         } catch (IOException e) {
@@ -272,8 +275,7 @@ public final class AnalysisImpl implements Analysis {
       } catch (IOException e) {
         // do nothing.
       }
-
-      return result;
+      return new StepByStepResult(charfilteredTexts, namedTokens);
     } catch (Exception e) {
       throw new LukeException(e.getMessage(), e);
     }
@@ -352,4 +354,22 @@ public final class AnalysisImpl implements Analysis {
       }
     }
   }
+
+  private static String writeCharStream(Reader input ){
+    final int BUFFER_SIZE = 1024;
+    char[] buf = new char[BUFFER_SIZE];
+    int len = 0;
+    StringBuilder sb = new StringBuilder();
+    do {
+      try {
+        len = input.read( buf, 0, BUFFER_SIZE );
+      } catch (IOException e) {
+        throw new RuntimeException("Error occurred while iterating over charfiltering", e);
+      }
+      if( len > 0 )
+        sb.append(buf, 0, len);
+    } while( len == BUFFER_SIZE );
+    return sb.toString();
+  }
+
 }

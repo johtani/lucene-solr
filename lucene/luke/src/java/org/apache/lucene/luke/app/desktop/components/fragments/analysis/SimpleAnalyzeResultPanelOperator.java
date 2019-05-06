@@ -28,6 +28,7 @@ import org.apache.lucene.luke.models.analysis.Analysis;
 /** Operator of the simple analyze result panel */
 public interface SimpleAnalyzeResultPanelOperator extends ComponentOperatorRegistry.ComponentOperator  {
 
+  /** Table model for simple result */
   final class TokensTableModel extends TableModelBase<TokensTableModel.Column> {
 
     enum Column implements TableColumnInfo {

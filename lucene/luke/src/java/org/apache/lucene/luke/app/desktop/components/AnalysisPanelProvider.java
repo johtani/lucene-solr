@@ -20,6 +20,7 @@ package org.apache.lucene.luke.app.desktop.components;
 import javax.swing.BorderFactory;
 import javax.swing.ButtonGroup;
 import javax.swing.JButton;
+import javax.swing.JCheckBox;
 import javax.swing.JLabel;
 import javax.swing.JPanel;
 import javax.swing.JRadioButton;
@@ -102,6 +103,8 @@ public final class AnalysisPanelProvider implements AnalysisTabOperator {
 
   private final JPanel stepByStepResult;
 
+  private final JCheckBox stepByStepCB = new JCheckBox();
+
   private final ListenerFunctions listeners = new ListenerFunctions();
 
   private Analysis analysisModel;
@@ -125,7 +128,8 @@ public final class AnalysisPanelProvider implements AnalysisTabOperator {
 
     operatorRegistry.get(PresetAnalyzerPanelOperator.class).ifPresent(operator -> {
       // Scanning all Analyzer types will take time...
-      ExecutorService executorService = Executors.newFixedThreadPool(1, new NamedThreadFactory("load-preset-analyzer-types"));
+      ExecutorService executorService =
+          Executors.newFixedThreadPool(1, new NamedThreadFactory("load-preset-analyzer-types"));
       executorService.execute(() -> {
         operator.setPresetAnalyzers(analysisModel.getPresetAnalyzerTypes());
         operator.setSelectedAnalyzer(analysisModel.currentAnalyzer().getClass());
@@ -213,19 +217,12 @@ public final class AnalysisPanelProvider implements AnalysisTabOperator {
     inputArea.setText(MessageUtils.getLocalizedMessage("analysis.textarea.prompt"));
     input.add(new JScrollPane(inputArea));
 
-    JButton executeBtn = new JButton(FontUtils.elegantIconHtml("&#xe007;", MessageUtils.getLocalizedMessage("analysis.button.test")));
+    JButton executeBtn = new JButton(FontUtils.elegantIconHtml("&#xe007;",
+        MessageUtils.getLocalizedMessage("analysis.button.test")));
     executeBtn.setFont(StyleConstants.FONT_BUTTON_LARGE);
     executeBtn.setMargin(new Insets(3, 3, 3, 3));
     executeBtn.addActionListener(listeners::executeAnalysis);
     input.add(executeBtn);
-
-    JButton executeStepByStepBtn =
-        new JButton(FontUtils.elegantIconHtml("&#xe007;",
-            MessageUtils.getLocalizedMessage("analysis.button.test_step_by_step")));
-    executeStepByStepBtn.setFont(StyleConstants.FONT_BUTTON_LARGE);
-    executeStepByStepBtn.setMargin(new Insets(3, 3, 3, 3));
-    executeStepByStepBtn.addActionListener(listeners::executeAnalysisStepByStep);
-    input.add(executeStepByStepBtn);
 
     JButton clearBtn = new JButton(MessageUtils.getLocalizedMessage("button.clear"));
     clearBtn.setFont(StyleConstants.FONT_BUTTON_LARGE);
@@ -238,6 +235,12 @@ public final class AnalysisPanelProvider implements AnalysisTabOperator {
           StepByStepAnalyzeResultPanelOperator::clearTable);
     });
     input.add(clearBtn);
+
+    stepByStepCB.setText(MessageUtils.getLocalizedMessage("analysis.checkbox.step_by_step"));
+    stepByStepCB.setSelected(false);
+    stepByStepCB.setOpaque(false);
+    stepByStepCB.setVisible(false);
+    input.add(stepByStepCB);
 
     inner1.add(input, BorderLayout.CENTER);
 
@@ -260,7 +263,8 @@ public final class AnalysisPanelProvider implements AnalysisTabOperator {
         operator.setPresetAnalyzers(analysisModel.getPresetAnalyzerTypes());
         operator.setSelectedAnalyzer(analysisModel.currentAnalyzer().getClass());
       });
-
+      stepByStepCB.setSelected(false);
+      stepByStepCB.setVisible(false);
     } else if (command.equalsIgnoreCase(TYPE_CUSTOM)) {
       mainPanel.remove(preset);
       mainPanel.add(custom, BorderLayout.CENTER);
@@ -269,6 +273,7 @@ public final class AnalysisPanelProvider implements AnalysisTabOperator {
         operator.setAnalysisModel(analysisModel);
         operator.resetAnalysisComponents();
       });
+      stepByStepCB.setVisible(true);
     }
     mainPanel.setVisible(false);
     mainPanel.setVisible(true);
@@ -360,11 +365,14 @@ public final class AnalysisPanelProvider implements AnalysisTabOperator {
     }
 
     void executeAnalysis(ActionEvent e) {
-      AnalysisPanelProvider.this.executeAnalysis();
+      if (AnalysisPanelProvider.this.stepByStepCB.isSelected()) {
+        AnalysisPanelProvider.this.executeAnalysisStepByStep();
+      } else {
+        AnalysisPanelProvider.this.executeAnalysis();
+      }
     }
 
     void executeAnalysisStepByStep(ActionEvent e) {
-      AnalysisPanelProvider.this.executeAnalysisStepByStep();
     }
   }
 

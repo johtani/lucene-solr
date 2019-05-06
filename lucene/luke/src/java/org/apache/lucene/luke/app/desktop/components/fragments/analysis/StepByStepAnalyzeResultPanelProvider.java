@@ -17,6 +17,7 @@
 
 package org.apache.lucene.luke.app.desktop.components.fragments.analysis;
 
+import javax.swing.BoxLayout;
 import javax.swing.JLabel;
 import javax.swing.JPanel;
 import javax.swing.JScrollPane;
@@ -24,6 +25,7 @@ import javax.swing.JTable;
 import javax.swing.ListSelectionModel;
 
 import java.awt.BorderLayout;
+import java.awt.Dimension;
 import java.awt.FlowLayout;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
@@ -36,20 +38,26 @@ import org.apache.lucene.luke.app.desktop.util.MessageUtils;
 import org.apache.lucene.luke.app.desktop.util.TableUtils;
 import org.apache.lucene.luke.models.analysis.Analysis;
 
+/** Provider of the Step by step analyze result panel */
 public class StepByStepAnalyzeResultPanelProvider implements StepByStepAnalyzeResultPanelOperator {
-
 
   private final ComponentOperatorRegistry operatorRegistry;
 
   private final TokenAttributeDialogFactory tokenAttrDialogFactory;
 
+  private final JTable charfilterTextsTable = new JTable();
+
+  private final JTable charfilterTextsRowHeader = new JTable();
+
   private final JTable namedTokensTable = new JTable();
+
+  private final JTable namedTokensRowHeader = new JTable();
 
   private final ListenerFunctions listeners = new ListenerFunctions();
 
   private Analysis analysisModel;
 
-  private List<Analysis.NamedTokens> namedTokens;
+  private Analysis.StepByStepResult result;
 
   public StepByStepAnalyzeResultPanelProvider(TokenAttributeDialogFactory tokenAttrDialogFactory) {
     this.operatorRegistry = ComponentOperatorRegistry.getInstance();
@@ -66,16 +74,37 @@ public class StepByStepAnalyzeResultPanelProvider implements StepByStepAnalyzeRe
     hint.add(new JLabel(MessageUtils.getLocalizedMessage("analysis.hint.show_attributes_step_by_step")));
     panel.add(hint, BorderLayout.PAGE_START);
 
-    TableUtils.setupTable(namedTokensTable, ListSelectionModel.SINGLE_SELECTION, new StepByStepAnalyzeResultPanelOperator.NamedTokensTableModel(),
+    JPanel inner = new JPanel();
+    inner.setLayout(new BoxLayout(inner, BoxLayout.PAGE_AXIS));
+
+    TableUtils.setupTable(charfilterTextsRowHeader, ListSelectionModel.SINGLE_SELECTION, new RowHeaderTableModel(),
+        null);
+    TableUtils.setupTable(charfilterTextsTable, ListSelectionModel.SINGLE_SELECTION, new CharfilterTextTableModel(),
+        null);
+    inner.add(initResultScroll(panel, charfilterTextsTable, charfilterTextsRowHeader));
+
+    TableUtils.setupTable(namedTokensRowHeader, ListSelectionModel.SINGLE_SELECTION, new RowHeaderTableModel(),
+        null);
+    TableUtils.setupTable(namedTokensTable, ListSelectionModel.SINGLE_SELECTION, new NamedTokensTableModel(),
         new MouseAdapter() {
           @Override
           public void mouseClicked(MouseEvent e) {
             listeners.showAttributeValues(e);
           }
         });
-    panel.add(new JScrollPane(namedTokensTable), BorderLayout.CENTER);
-
+    namedTokensTable.setColumnSelectionAllowed(true);
+    inner.add(initResultScroll(panel, namedTokensTable, namedTokensRowHeader));
+    panel.add(inner, BorderLayout.CENTER);
     return panel;
+  }
+
+  private JScrollPane initResultScroll(JPanel panel, JTable table, JTable header) {
+    JScrollPane scroll = new JScrollPane(table);
+    scroll.setRowHeaderView(header);
+    scroll.setCorner(JScrollPane.UPPER_LEFT_CORNER, header.getTableHeader());
+    Dimension tsz = new Dimension(200, header.getPreferredSize().height);
+    scroll.getRowHeader().setPreferredSize(tsz);
+    return scroll;
   }
 
 
@@ -86,35 +115,54 @@ public class StepByStepAnalyzeResultPanelProvider implements StepByStepAnalyzeRe
 
   @Override
   public void executeAnalysisStepByStep(String text) {
-    namedTokens = analysisModel.analyzeStepByStep(text);
-    NamedTokensTableModel tableModel = new StepByStepAnalyzeResultPanelOperator.NamedTokensTableModel(namedTokens);
+    result = analysisModel.analyzeStepByStep(text);
+    RowHeaderTableModel charfilterTextsHeaderModel = new RowHeaderTableModel(result.getCharfilteredTexts());
+    charfilterTextsRowHeader.setModel(charfilterTextsHeaderModel);
+    charfilterTextsRowHeader.setShowGrid(true);
+
+    CharfilterTextTableModel charfilterTextTableModel = new CharfilterTextTableModel(result.getCharfilteredTexts());
+    charfilterTextsTable.setModel(charfilterTextTableModel);
+    charfilterTextsTable.setShowGrid(true);
+
+    RowHeaderTableModel namedTokensHeaderModel = new RowHeaderTableModel(result.getNamedTokens());
+    namedTokensRowHeader.setModel(namedTokensHeaderModel);
+    namedTokensRowHeader.setShowGrid(true);
+
+    NamedTokensTableModel tableModel = new NamedTokensTableModel(result.getNamedTokens());
     namedTokensTable.setModel(tableModel);
     namedTokensTable.setShowGrid(true);
-    for (int i = 0; i < namedTokens.size(); i++) {
+    for (int i = 0; i < tableModel.getColumnCount(); i++) {
       namedTokensTable.getColumnModel().getColumn(i).setPreferredWidth(tableModel.getColumnWidth(i));
     }
   }
 
   @Override
   public void clearTable() {
+    TableUtils.setupTable(charfilterTextsRowHeader, ListSelectionModel.SINGLE_SELECTION, new RowHeaderTableModel(),
+        null);
+    TableUtils.setupTable(charfilterTextsTable, ListSelectionModel.SINGLE_SELECTION, new CharfilterTextTableModel(),
+        null);
+
+    TableUtils.setupTable(namedTokensRowHeader, ListSelectionModel.SINGLE_SELECTION, new RowHeaderTableModel(),
+        null);
     TableUtils.setupTable(namedTokensTable, ListSelectionModel.SINGLE_SELECTION, new NamedTokensTableModel(),
         null);
   }
 
   private void showAttributeValues(int rowIndex, int columnIndex) {
-    Analysis.NamedTokens namedTokens = this.namedTokens.get(columnIndex);
+    Analysis.NamedTokens namedTokens =
+        this.result.getNamedTokens().get(rowIndex - this.result.getCharfilteredTexts().size());
     List<Analysis.Token> tokens = namedTokens.getTokens();
 
     if (rowIndex <= tokens.size()) {
-      String term = "\"" + tokens.get(rowIndex).getTerm() + "\" BY " + namedTokens.getName();
-      List<Analysis.TokenAttribute> attributes = tokens.get(rowIndex).getAttributes();
+      String term = "\"" + tokens.get(columnIndex).getTerm() + "\" BY " + namedTokens.getName();
+      List<Analysis.TokenAttribute> attributes = tokens.get(columnIndex).getAttributes();
       new DialogOpener<>(tokenAttrDialogFactory).open("Token Attributes", 650, 400,
           factory -> {
             factory.setTerm(term);
             factory.setAttributes(attributes);
           });
     }
-    // TODO show error dialog? if click cell that has no data
   }
 
   private class ListenerFunctions {
